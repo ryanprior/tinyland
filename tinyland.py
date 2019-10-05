@@ -1,11 +1,7 @@
 import cv2
 import numpy as np
 import cv2.aruco as aruco
-import toml
-
-def load_config():
-  projector = toml.load('./config.toml')
-  return projector
+import config
 
 def correctImage(original_image, homography, projector):
   PROJECTOR_WIDTH = projector["PROJECTOR_WIDTH"]
@@ -144,7 +140,7 @@ def printXY(_a, x, y, _b, _c):
   print("y: ", y)
 
 if __name__ == "__main__":
-  projector = load_config()
+  projector = config.load()
   cv2.namedWindow("Tinyland")
   cv2.namedWindow("Tinycam")
   cv2.setMouseCallback("Tinycam", printXY) # Useful when setting projection config.
