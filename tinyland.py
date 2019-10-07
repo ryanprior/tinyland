@@ -2,11 +2,12 @@ import cv2
 import numpy as np
 import cv2.aruco as aruco
 import config
+from sys import stdout
 
-def correctImage(original_image, homography, projector):
-  PROJECTOR_WIDTH = projector["PROJECTOR_WIDTH"]
-  PROJECTOR_HEIGHT = projector["PROJECTOR_HEIGHT"]
-  correctedImage = cv2.warpPerspective(original_image, homography, (PROJECTOR_WIDTH, PROJECTOR_HEIGHT)) # TODO: magic nums, use config constants
+def correctImage(original_image, homography, config):
+  area = (config.projector.width, config.projector.height)
+  correctedImage = cv2.warpPerspective(original_image, homography, area)
+  # TODO: magic nums, use config constants
   return correctedImage
 
 def toggle_fullscreen():
@@ -25,16 +26,16 @@ def squaritude(c):
   rectitude = cv2.contourArea(c) / (w*h)
   return aspect * rectitude
 
-def do_frame(cap, projector):
-  PROJECTOR_WIDTH = projector["PROJECTOR_WIDTH"]
-  PROJECTOR_HEIGHT = projector["PROJECTOR_HEIGHT"]
-  SRC_CORNERS = np.array(projector["SRC_CORNERS"])
-  DEST_CORNERS = np.array(projector["DEST_CORNERS"])
-  FLIP_PROJECTION = np.array(projector["FLIP_PROJECTION"])
+def do_frame(cap, config):
+  projector = config.projector
+  SRC_CORNERS = np.array(projector.SRC_CORNERS)
+  DEST_CORNERS = np.array(projector.DEST_CORNERS)
+  FLIP_PROJECTION = np.array(projector.FLIP_PROJECTION)
 
   frame = cap.read()[1]
 
-  # If we're at the end of the video, rewind. This comes into play when we're using a video file as input, as for testing offline.
+  # If we're at the end of the video, rewind. This comes into play when we're
+  # using a video file as input, as for testing offline.
   if frame is None:
     cap.set(cv2.CAP_PROP_POS_MSEC, 0)
     return
@@ -46,9 +47,9 @@ def do_frame(cap, projector):
   if key & 0xFF == ord('f'):
     toggle_fullscreen()
   if key & 0xFF == ord('c'):
-    projector["CALIBRATE"] = True
+    projector.CALIBRATE = True
 
-  if projector.get("CALIBRATE"):
+  if projector.CALIBRATE:
     # Search for our calibration markers
     frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     rv, frame_thresh = cv2.threshold(frame_gray, 185, 255, cv2.THRESH_BINARY)
@@ -85,15 +86,15 @@ def do_frame(cap, projector):
       boundary = boundary[:,0]
       if len(boundary) == 4:
         # This has to be the dumbest possible way to sort four points clockwise from top left
-        point1 = [p for p in boundary if p[0] < PROJECTOR_WIDTH/2 and p[1] < PROJECTOR_HEIGHT/2]
-        point2 = [p for p in boundary if p[0] > PROJECTOR_WIDTH/2 and p[1] < PROJECTOR_HEIGHT/2]
-        point3 = [p for p in boundary if p[0] > PROJECTOR_WIDTH/2 and p[1] > PROJECTOR_HEIGHT/2]
-        point4 = [p for p in boundary if p[0] < PROJECTOR_WIDTH/2 and p[1] > PROJECTOR_HEIGHT/2]
+        point1 = [p for p in boundary if p[0] < projector.WIDTH/2 and p[1] < projector.HEIGHT/2]
+        point2 = [p for p in boundary if p[0] > projector.WIDTH/2 and p[1] < projector.HEIGHT/2]
+        point3 = [p for p in boundary if p[0] > projector.WIDTH/2 and p[1] > projector.HEIGHT/2]
+        point4 = [p for p in boundary if p[0] < projector.WIDTH/2 and p[1] > projector.HEIGHT/2]
         if len(point1) == 1 and len(point2) == 1 and len(point3) == 1 and len(point4) == 1:
-          SRC_CORNERS = np.array([point1[:], point2[:], point3[:], point4[:]])
+          projector.SRC_CORNERS = np.array([point1[:], point2[:], point3[:], point4[:]])
           # It's slightly hacky for us to mix up our state and our config in this way.
-          projector["SRC_CORNERS"] = SRC_CORNERS
-          projector["CALIBRATE"] = False
+          # projector["SRC_CORNERS"] = SRC_CORNERS
+          projector.CALIBRATE = False
 
       cv2.drawContours(frame, [boundary], 0, (0, 255, 0), 2)
 
@@ -101,7 +102,7 @@ def do_frame(cap, projector):
   h, status = cv2.findHomography(SRC_CORNERS, DEST_CORNERS)
 
   # Correction
-  image = correctImage(frame, h, projector)
+  image = correctImage(frame, h, config)
   if(FLIP_PROJECTION):
     image = cv2.flip(image, -1)
 
@@ -113,10 +114,10 @@ def do_frame(cap, projector):
   # Render
   BLACK = (0, 0, 0)
   WHITE = (255, 255, 255)
-  image = cv2.rectangle(image, (0,0), (PROJECTOR_WIDTH, PROJECTOR_HEIGHT), BLACK, cv2.FILLED)
+  image = cv2.rectangle(image, (0,0), (projector.WIDTH, projector.HEIGHT), BLACK, cv2.FILLED)
   image = aruco.drawDetectedMarkers(image, corners, ids)
 
-  if projector.get("CALIBRATE"):
+  if projector.CALIBRATE:
     # Display calibration markers until we find them
     M_SZ = 40
     marker = np.zeros((M_SZ, M_SZ, 3), dtype=np.uint8)
@@ -125,11 +126,11 @@ def do_frame(cap, projector):
 
     image[0:M_SZ, 0:M_SZ] = marker
     marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
-    image[0:M_SZ, PROJECTOR_WIDTH-M_SZ:PROJECTOR_WIDTH] = marker
+    image[0:M_SZ, projector.WIDTH-M_SZ:projector.WIDTH] = marker
     marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
-    image[PROJECTOR_HEIGHT-M_SZ:PROJECTOR_HEIGHT, PROJECTOR_WIDTH-M_SZ:PROJECTOR_WIDTH] = marker
+    image[projector.HEIGHT-M_SZ:projector.HEIGHT, projector.WIDTH-M_SZ:projector.WIDTH] = marker
     marker = cv2.rotate(marker, cv2.ROTATE_90_CLOCKWISE)
-    image[PROJECTOR_HEIGHT-M_SZ:PROJECTOR_HEIGHT, 0:M_SZ] = marker
+    image[projector.HEIGHT-M_SZ:projector.HEIGHT, 0:M_SZ] = marker
 
   # Show it
   cv2.imshow("Tinycam", frame)
@@ -140,7 +141,9 @@ def printXY(_a, x, y, _b, _c):
   print("y: ", y)
 
 if __name__ == "__main__":
-  projector = config.load()
+  config = config.load()
+  projector = config.projector
+  video = config.video
   cv2.namedWindow("Tinyland")
   cv2.namedWindow("Tinycam")
   cv2.setMouseCallback("Tinycam", printXY) # Useful when setting projection config.
@@ -148,12 +151,17 @@ if __name__ == "__main__":
 
   # Initialize video capture
   cap = None
-  if projector["USE_CAMERA"]:
+  if video.USE_CAMERA:
     # Hacky thing to find the right camera 🤷🏻‍♀️
     for i in range(5):
       cap = cv2.VideoCapture(1)
   else:
-    cap = cv2.VideoCapture(projector["VIDEO_FILE_PATH"])
+    cap = cv2.VideoCapture(video.FILE_PATH)
 
-  while True:
-    do_frame(cap, projector)
+  try:
+    while True:
+      do_frame(cap, config)
+  except KeyboardInterrupt:
+    stdout.write("\r") # clear line
+    print("tinyland: interrupted")
+    exit(0)
