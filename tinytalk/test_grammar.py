@@ -82,6 +82,7 @@ def test_number(n):
     result = grammar["number"].parse(str(n))
     assert visit(result) == n
 
+
 @given(text())
 def test_string(t):
     if '"' in t:
@@ -143,8 +144,14 @@ def test_multiplication(n, m, ws):
     whitespaces(),
 )
 def test_inequality(val_a, comp_a, val_b, comp_b, val_c, ws):
-    result = grammar["inequality"].parse(ws_between(ws, val_a, comp_a, val_b, comp_b, val_c))
-    assert visit(result) == ('and', (comp_a.strip(), val_b, val_a), (comp_b.strip(), val_b, val_c))
+    result = grammar["inequality"].parse(
+        ws_between(ws, val_a, comp_a, val_b, comp_b, val_c)
+    )
+    assert visit(result) == (
+        "and",
+        (comp_a.strip(), val_b, val_a),
+        (comp_b.strip(), val_b, val_c),
+    )
 
 
 @given(exprs())
@@ -152,9 +159,9 @@ def test_expr(e):
     grammar["expr"].parse(e)
 
 
-@given(names(), whitespaces(1), names_or_floats(), sampled_from(["<", ">"]))
+@given(names(), whitespaces(), names_or_floats(), sampled_from(["<", ">"]))
 def test_condition(name, ws, val, comp):
-    grammar["condition"].parse(ws_between(ws, name, "where", name, comp, val))
+    grammar["condition"].parse(ws_between(ws, name, " where ", name, comp, val))
 
 
 @given(data())
