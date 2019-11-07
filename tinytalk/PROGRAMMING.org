@@ -1,0 +1,44 @@
+* Programming in Tinytalk
+
+** Principles
+
+- Start from an example and build from there, whether you're brand-new to
+  Tinytalk or an expert.
+
+  If we are disciplined about this, it should lead to the formation of a living
+  "style guide" for Tinytalk programmers where the applications you see in the
+  world more or less fit together, rather than having lots of flavors of
+  Tinytalk floating around. If you take a whole new approach, it would be
+  helpful to explain what examples you looked at and why they are not conducive
+  to the experience you're trying to create.
+
+- Minimize the number of times you reference objects outside your own namespace,
+  ie the ones you didn't create and don't own.
+
+  When we follow this, we give downstream programmers the latitude to play with
+  how apps interact with the outside world. For example, something that used to
+  be controlled by following a visual marker might be fun to modify, giving
+  control to a joystick instead. If the original application references the
+  visual marker everywhere, that increases the work required to try out this
+  modification. For example, it might facilitiate easier experimentation to
+  create our own object representing the position & update it using the visual
+  marker, leading to a single place where we can modify the code to switch
+  control to a joystick.
+
+- Sparingly ~create~ objects, prefer to ~update~ them.
+
+  A program like ~where [#aruco x y] create friend [#bird x y: y + 100]~ will
+  create a new bird every time a given Aruco marker's x or y position changes,
+  requiring that we do some clever rendering or cleanup in order to get the
+  experience we want of a bird that follows the marker.
+
+  Instead, consider the following construction:
+
+  #+BEGIN_SRC tinytalk
+  where [#aruco] create friend [#bird]
+  where [#aruco x y] as me/my; friend [#bird x y] as bird
+    update bird [x: my x, y: my y + 100]
+  #+END_SRC
+
+  This only creates a bird when we see a new Aruco marker, avoiding a flood of
+  bird friends that we have to be clever about.
